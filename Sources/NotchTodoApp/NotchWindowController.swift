@@ -66,7 +66,7 @@ final class NotchWindowController {
         panel.level = NotchLayout.windowLevel
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = NotchLayout.usesWindowShadow
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isMovable = false

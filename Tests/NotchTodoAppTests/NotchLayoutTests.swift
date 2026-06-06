@@ -57,4 +57,8 @@ final class NotchLayoutTests: XCTestCase {
     func testWindowUsesSystemStatusBarLevel() {
         XCTAssertEqual(NotchLayout.windowLevel, .statusBar)
     }
+
+    func testPanelDoesNotUseSystemWindowShadow() {
+        XCTAssertFalse(NotchLayout.usesWindowShadow)
+    }
 }
