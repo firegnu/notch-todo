@@ -20,6 +20,32 @@ enum TaskRowStyle {
     static let completedOpacity = 0.025
 }
 
+enum TaskInteractionStyle {
+    static let toggleDuration = 0.16
+}
+
+struct TaskPanelStateContent {
+    let symbol: String
+    let title: String
+    let message: String
+
+    static let empty = TaskPanelStateContent(
+        symbol: "checklist",
+        title: "暂无任务",
+        message: "在 Markdown 的 Tasks 区域添加任务"
+    )
+    static let complete = TaskPanelStateContent(
+        symbol: "checkmark.circle",
+        title: "今天的任务已完成",
+        message: "做得不错"
+    )
+    static let error = TaskPanelStateContent(
+        symbol: "exclamationmark.triangle",
+        title: "无法读取任务",
+        message: ""
+    )
+}
+
 @MainActor
 final class NotchPresentationState: ObservableObject {
     @Published var isExpanded = false
@@ -45,6 +71,7 @@ final class NotchPresentationState: ObservableObject {
 }
 
 struct NotchPanelView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredTaskID: String?
 
     @ObservedObject var viewModel: TaskViewModel
@@ -218,25 +245,14 @@ struct NotchPanelView: View {
     @ViewBuilder
     private var content: some View {
         if let error = viewModel.errorMessage {
-            VStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.yellow)
-                Text(error)
-                    .font(.callout)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                if settings.taskFileURL == nil {
-                    Button("选择任务文件", action: onSelectTaskFile)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            panelStateView(
+                TaskPanelStateContent.error,
+                message: error,
+                actionTitle: "重新选择文件",
+                action: onSelectTaskFile
+            )
         } else if viewModel.tasks.isEmpty {
-            Text("暂无任务")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            panelStateView(TaskPanelStateContent.empty)
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -266,6 +282,12 @@ struct NotchPanelView: View {
                 }
             }
             .scrollIndicators(.never)
+            .animation(
+                reduceMotion
+                    ? nil
+                    : .easeOut(duration: TaskInteractionStyle.toggleDuration),
+                value: viewModel.tasks
+            )
         }
     }
 
@@ -312,18 +334,7 @@ struct NotchPanelView: View {
     }
 
     private var allCompleteView: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 22, weight: .light))
-                .foregroundStyle(.green.opacity(0.78))
-            Text("今天的任务已完成")
-                .font(.system(size: 14, weight: .medium))
-            Text("做得不错")
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.44))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
+        panelStateView(TaskPanelStateContent.complete)
         .background(
             Color(red: 0.055, green: 0.055, blue: 0.063),
             in: RoundedRectangle(cornerRadius: 15)
@@ -332,6 +343,39 @@ struct NotchPanelView: View {
             RoundedRectangle(cornerRadius: 15)
                 .stroke(.white.opacity(0.08), lineWidth: 1)
         }
+    }
+
+    private func panelStateView(
+        _ content: TaskPanelStateContent,
+        message: String? = nil,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: content.symbol)
+                .font(.system(size: 21, weight: .light))
+                .foregroundStyle(
+                    content.title == TaskPanelStateContent.error.title
+                        ? Color.yellow.opacity(0.8)
+                        : Color.white.opacity(0.52)
+                )
+            Text(content.title)
+                .font(.system(size: 14, weight: .medium))
+            Text(message ?? content.message)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.44))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .padding(.top, 3)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 22)
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -487,6 +531,14 @@ struct NotchPanelView: View {
                 task.isCompleted
                     ? Color.white.opacity(0.32)
                     : Color.white.opacity(0.66)
+            )
+            .scaleEffect(task.isCompleted ? 1 : 0.92)
+            .opacity(task.isCompleted ? 1 : 0.86)
+            .animation(
+                reduceMotion
+                    ? nil
+                    : .easeOut(duration: TaskInteractionStyle.toggleDuration),
+                value: task.isCompleted
             )
     }
 

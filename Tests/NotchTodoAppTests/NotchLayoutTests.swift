@@ -15,6 +15,13 @@ final class NotchLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(TaskRowStyle.hoverOpacity, 0.08)
     }
 
+    func testDailyUsePolishKeepsMotionAndStateCopyRestrained() {
+        XCTAssertEqual(TaskInteractionStyle.toggleDuration, 0.16)
+        XCTAssertEqual(TaskPanelStateContent.empty.title, "暂无任务")
+        XCTAssertEqual(TaskPanelStateContent.complete.title, "今天的任务已完成")
+        XCTAssertEqual(TaskPanelStateContent.error.title, "无法读取任务")
+    }
+
     func testRequiresBuiltInScreenWithTopSafeArea() {
         XCTAssertTrue(
             NotchLayout.isEligible(isBuiltIn: true, topSafeArea: 32)
