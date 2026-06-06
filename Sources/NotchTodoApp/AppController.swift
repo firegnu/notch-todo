@@ -10,21 +10,33 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private let viewModel = TaskViewModel()
     private let launchAtLogin = LaunchAtLoginController()
+    private lazy var settings = AppSettingsState(
+        launchAtLoginEnabled: launchAtLogin.isEnabled
+    )
     private var notchWindowController: NotchWindowController?
-    private var statusItem: NSStatusItem?
     private var taskFileStore: TaskFileStore?
-    private var launchAtLoginItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        configureStatusItem()
 
-        notchWindowController = NotchWindowController(viewModel: viewModel)
+        notchWindowController = NotchWindowController(
+            viewModel: viewModel,
+            settings: settings,
+            onSelectTaskFile: { [weak self] in
+                self?.selectTaskFile()
+            },
+            onSetLaunchAtLogin: { [weak self] enabled in
+                self?.setLaunchAtLogin(enabled)
+            },
+            onQuit: {
+                NSApp.terminate(nil)
+            }
+        )
         restoreTaskFile()
         notchWindowController?.show()
 
         if taskFileStore == nil {
-            viewModel.showError("请从菜单栏选择 Markdown 任务文件")
+            viewModel.showError("请选择 Markdown 任务文件")
         }
     }
 
@@ -33,7 +45,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         notchWindowController?.hide()
     }
 
-    @objc private func selectTaskFile() {
+    private func selectTaskFile() {
+        NSApp.activate(ignoringOtherApps: true)
         let panel = NSOpenPanel()
         panel.title = "选择任务 Markdown 文件"
         panel.prompt = "选择"
@@ -55,57 +68,14 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
+    private func setLaunchAtLogin(_ enabled: Bool) {
         do {
-            try launchAtLogin.setEnabled(!launchAtLogin.isEnabled)
-            refreshLaunchAtLoginItem()
+            try launchAtLogin.setEnabled(enabled)
+            settings.setLaunchAtLoginEnabled(launchAtLogin.isEnabled)
         } catch {
+            settings.setLaunchAtLoginEnabled(launchAtLogin.isEnabled)
             viewModel.showError("无法更新登录启动设置：\(error.localizedDescription)")
         }
-    }
-
-    @objc private func quit() {
-        NSApp.terminate(nil)
-    }
-
-    private func configureStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = LabubuIcon.image
-        item.button?.image?.size = NSSize(width: 16, height: 16)
-        item.button?.toolTip = "Notch Todo"
-
-        let menu = NSMenu()
-        let selectItem = menu.addItem(
-            withTitle: "选择任务文件…",
-            action: #selector(selectTaskFile),
-            keyEquivalent: "o"
-        )
-        selectItem.target = self
-
-        let loginItem = NSMenuItem(
-            title: "登录时启动",
-            action: #selector(toggleLaunchAtLogin(_:)),
-            keyEquivalent: ""
-        )
-        loginItem.target = self
-        menu.addItem(loginItem)
-        launchAtLoginItem = loginItem
-        refreshLaunchAtLoginItem()
-
-        menu.addItem(.separator())
-        let quitItem = menu.addItem(
-            withTitle: "退出 Notch Todo",
-            action: #selector(quit),
-            keyEquivalent: "q"
-        )
-        quitItem.target = self
-
-        item.menu = menu
-        statusItem = item
-    }
-
-    private func refreshLaunchAtLoginItem() {
-        launchAtLoginItem?.state = launchAtLogin.isEnabled ? .on : .off
     }
 
     private func restoreTaskFile() {
@@ -124,6 +94,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         taskFileStore?.stopMonitoring()
         let store = TaskFileStore(url: url)
         taskFileStore = store
+        settings.setTaskFile(url)
         viewModel.use(store: store)
     }
 }

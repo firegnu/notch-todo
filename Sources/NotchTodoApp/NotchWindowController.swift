@@ -4,6 +4,10 @@ import SwiftUI
 @MainActor
 final class NotchWindowController {
     private let viewModel: TaskViewModel
+    private let settings: AppSettingsState
+    private let onSelectTaskFile: () -> Void
+    private let onSetLaunchAtLogin: @MainActor @Sendable (Bool) -> Void
+    private let onQuit: () -> Void
     private let presentation = NotchPresentationState()
     private var panel: NSPanel?
     private var screenInfo: BuiltInNotchScreen?
@@ -22,8 +26,18 @@ final class NotchWindowController {
         set { presentation.isLocked = newValue }
     }
 
-    init(viewModel: TaskViewModel) {
+    init(
+        viewModel: TaskViewModel,
+        settings: AppSettingsState,
+        onSelectTaskFile: @escaping () -> Void,
+        onSetLaunchAtLogin: @escaping @MainActor @Sendable (Bool) -> Void,
+        onQuit: @escaping () -> Void
+    ) {
         self.viewModel = viewModel
+        self.settings = settings
+        self.onSelectTaskFile = onSelectTaskFile
+        self.onSetLaunchAtLogin = onSetLaunchAtLogin
+        self.onQuit = onQuit
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -77,6 +91,7 @@ final class NotchWindowController {
         let view = NotchPanelView(
             viewModel: viewModel,
             presentation: presentation,
+            settings: settings,
             onHoverChanged: { [weak self] isInside in
                 self?.handleHover(isInside)
             },
@@ -85,10 +100,35 @@ final class NotchWindowController {
             },
             onToggleTask: { [weak self] task in
                 self?.viewModel.toggle(task)
-            }
+            },
+            onShowSettings: { [weak self] in
+                self?.showSettings()
+            },
+            onShowTasks: { [weak self] in
+                self?.presentation.showTasks()
+            },
+            onSelectTaskFile: { [weak self] in
+                self?.selectTaskFile()
+            },
+            onSetLaunchAtLogin: onSetLaunchAtLogin,
+            onQuit: onQuit
         )
         panel.contentViewController = NSHostingController(rootView: view)
         return panel
+    }
+
+    private func showSettings() {
+        presentation.showSettings()
+        setExpanded(true)
+        installClickMonitors()
+    }
+
+    private func selectTaskFile() {
+        removeClickMonitors()
+        onSelectTaskFile()
+        if presentation.isShowingSettings {
+            installClickMonitors()
+        }
     }
 
     private func handleHover(_ isInside: Bool) {
@@ -132,7 +172,7 @@ final class NotchWindowController {
             guard presentation.isExpanded || presentation.isContentVisible else { return }
 
             presentation.isContentVisible = false
-            isLocked = false
+            presentation.resetForCollapse()
             removeClickMonitors()
 
             animationTask = Task { [weak self] in
@@ -177,7 +217,6 @@ final class NotchWindowController {
                 notchHeight: presentation.notchHeight
             )
         guard !visibleFrame.contains(NSEvent.mouseLocation) else { return }
-        isLocked = false
         setExpanded(false)
     }
 
