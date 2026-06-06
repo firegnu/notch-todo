@@ -70,7 +70,8 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.title = "🌙"
+        item.button?.image = LabubuIcon.image
+        item.button?.image?.size = NSSize(width: 16, height: 16)
         item.button?.toolTip = "Notch Todo"
 
         let menu = NSMenu()

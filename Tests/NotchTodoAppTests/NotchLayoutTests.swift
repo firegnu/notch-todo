@@ -22,8 +22,13 @@ final class NotchLayoutTests: XCTestCase {
             notchHeight: 32
         )
 
-        XCTAssertEqual(frame, CGRect(x: 598, y: 950, width: 316, height: 32))
+        XCTAssertEqual(frame, CGRect(x: 612, y: 950, width: 288, height: 32))
         XCTAssertEqual(frame.midX, 756)
+    }
+
+    func testCompactSideWidthLeavesRoomForSmallSummary() {
+        XCTAssertEqual(NotchLayout.compactSideWidth, 54)
+        XCTAssertEqual(NotchLayout.compactSummaryFontSize, 11)
     }
 
     func testNotchWidthUsesAuxiliaryAreaWidths() {

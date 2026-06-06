@@ -19,12 +19,9 @@ final class TaskViewModel: ObservableObject {
 
     var compactLabel: String {
         if errorMessage != nil {
-            return "⚠️ --/--"
+            return "--/--"
         }
-        if !tasks.isEmpty, completedCount == totalCount {
-            return "✨ \(completedCount)/\(totalCount)"
-        }
-        return "🌙 \(completedCount)/\(totalCount)"
+        return "\(completedCount)/\(totalCount)"
     }
 
     func use(store: any TaskFileStoring) {

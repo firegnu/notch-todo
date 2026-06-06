@@ -59,16 +59,25 @@ struct NotchPanelView: View {
 
     private var compactView: some View {
         HStack(spacing: 0) {
-            Color.clear
+            HStack(spacing: 2) {
+                LabubuIconView(size: 13)
+                Text(viewModel.compactLabel)
+                    .font(
+                        .system(
+                            size: NotchLayout.compactSummaryFontSize,
+                            weight: .semibold,
+                            design: .rounded
+                        )
+                    )
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
                 .frame(width: NotchLayout.compactSideWidth)
 
             Color.clear
                 .frame(width: presentation.notchWidth)
 
-            Text(viewModel.compactLabel)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+            Color.clear
                 .frame(width: NotchLayout.compactSideWidth)
         }
         .frame(height: presentation.notchHeight)
@@ -78,7 +87,8 @@ struct NotchPanelView: View {
         VStack(spacing: 0) {
             Button(action: onToggleLock) {
                 HStack {
-                    Text("🌙 Today")
+                    LabubuIconView(size: 18)
+                    Text("Today")
                         .font(.headline)
                     Spacer()
                     Text("\(viewModel.completedCount)/\(viewModel.totalCount)")

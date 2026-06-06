@@ -18,10 +18,10 @@ final class TaskViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.completedCount, 2)
         XCTAssertEqual(viewModel.totalCount, 3)
-        XCTAssertEqual(viewModel.compactLabel, "🌙 2/3")
+        XCTAssertEqual(viewModel.compactLabel, "2/3")
     }
 
-    func testAllCompleteUsesCompletionEmoji() {
+    func testAllCompleteKeepsProgressLabelCompact() {
         let store = MockTaskFileStore()
         store.loadResult = .success([
             TaskItem(lineIndex: 1, text: "Done", isCompleted: true),
@@ -30,7 +30,7 @@ final class TaskViewModelTests: XCTestCase {
 
         viewModel.use(store: store)
 
-        XCTAssertEqual(viewModel.compactLabel, "✨ 1/1")
+        XCTAssertEqual(viewModel.compactLabel, "1/1")
     }
 
     func testSuccessfulToggleKeepsTaskInOriginalPosition() {

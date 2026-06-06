@@ -2,7 +2,8 @@ import AppKit
 import CoreGraphics
 
 enum NotchLayout {
-    static let compactSideWidth: CGFloat = 68
+    static let compactSideWidth: CGFloat = 54
+    static let compactSummaryFontSize: CGFloat = 11
     static let windowLevel = NSWindow.Level.statusBar
     static let usesWindowShadow = false
 
