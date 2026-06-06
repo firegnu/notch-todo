@@ -1,9 +1,18 @@
 import SwiftUI
 import NotchTodoCore
 
+enum NotchAnimation {
+    static let contentRevealDelay = Duration.milliseconds(70)
+    static let shapeCollapseDelay = Duration.milliseconds(60)
+    static let shapeResponse = 0.38
+    static let shapeDampingFraction = 0.92
+    static let contentDuration = 0.16
+}
+
 @MainActor
 final class NotchPresentationState: ObservableObject {
     @Published var isExpanded = false
+    @Published var isContentVisible = false
     @Published var isLocked = false
     @Published var notchWidth: CGFloat = 180
     @Published var notchHeight: CGFloat = 32
@@ -22,14 +31,19 @@ struct NotchPanelView: View {
             ZStack(alignment: .top) {
                 compactView
                     .opacity(presentation.isExpanded ? 0 : 1)
-                    .scaleEffect(presentation.isExpanded ? 0.96 : 1)
+                    .scaleEffect(presentation.isExpanded ? 0.98 : 1, anchor: .top)
                     .zIndex(presentation.isExpanded ? 0 : 1)
+                    .animation(.easeOut(duration: 0.12), value: presentation.isExpanded)
 
-                expandedView
-                    .opacity(presentation.isExpanded ? 1 : 0)
-                    .scaleEffect(presentation.isExpanded ? 1 : 0.98, anchor: .top)
-                    .allowsHitTesting(presentation.isExpanded)
-                    .zIndex(presentation.isExpanded ? 1 : 0)
+                if presentation.isContentVisible {
+                    expandedView
+                        .transition(
+                            .opacity.combined(
+                                with: .scale(scale: 0.985, anchor: .top)
+                            )
+                        )
+                        .zIndex(1)
+                }
             }
             .foregroundStyle(.white)
             .frame(
@@ -52,15 +66,25 @@ struct NotchPanelView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(
-            .spring(response: 0.32, dampingFraction: 0.86),
+            .spring(
+                response: NotchAnimation.shapeResponse,
+                dampingFraction: NotchAnimation.shapeDampingFraction
+            ),
             value: presentation.isExpanded
+        )
+        .animation(
+            .easeOut(duration: NotchAnimation.contentDuration),
+            value: presentation.isContentVisible
         )
     }
 
     private var compactView: some View {
         HStack(spacing: 0) {
             HStack(spacing: 2) {
-                LabubuIconView(size: 13)
+                LabubuIconView(
+                    size: 13,
+                    celebrationTrigger: isAllComplete
+                )
                 Text(viewModel.compactLabel)
                     .font(
                         .system(
@@ -87,7 +111,10 @@ struct NotchPanelView: View {
         VStack(spacing: 0) {
             Button(action: onToggleLock) {
                 HStack {
-                    LabubuIconView(size: 18)
+                    LabubuIconView(
+                        size: 18,
+                        celebrationTrigger: isAllComplete
+                    )
                     Text("Today")
                         .font(.headline)
                     Spacer()
@@ -169,5 +196,10 @@ struct NotchPanelView: View {
             .padding(.vertical, 7)
         }
         .buttonStyle(.plain)
+    }
+
+    private var isAllComplete: Bool {
+        !viewModel.tasks.isEmpty
+            && viewModel.completedCount == viewModel.totalCount
     }
 }

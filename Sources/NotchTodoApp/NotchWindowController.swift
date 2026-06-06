@@ -8,6 +8,7 @@ final class NotchWindowController {
     private var panel: NSPanel?
     private var screenInfo: BuiltInNotchScreen?
     private var collapseTask: Task<Void, Never>?
+    private var animationTask: Task<Void, Never>?
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
     private var screenObserver: NSObjectProtocol?
@@ -52,6 +53,7 @@ final class NotchWindowController {
 
     func hide() {
         collapseTask?.cancel()
+        animationTask?.cancel()
         panel?.orderOut(nil)
         removeClickMonitors()
     }
@@ -113,11 +115,31 @@ final class NotchWindowController {
     }
 
     private func setExpanded(_ expanded: Bool) {
-        guard expanded != isExpanded else { return }
-        presentation.isExpanded = expanded
-        if !expanded {
+        animationTask?.cancel()
+
+        if expanded {
+            if !presentation.isExpanded {
+                presentation.isExpanded = true
+            }
+            guard !presentation.isContentVisible else { return }
+
+            animationTask = Task { [weak self] in
+                try? await Task.sleep(for: NotchAnimation.contentRevealDelay)
+                guard !Task.isCancelled else { return }
+                self?.presentation.isContentVisible = true
+            }
+        } else {
+            guard presentation.isExpanded || presentation.isContentVisible else { return }
+
+            presentation.isContentVisible = false
             isLocked = false
             removeClickMonitors()
+
+            animationTask = Task { [weak self] in
+                try? await Task.sleep(for: NotchAnimation.shapeCollapseDelay)
+                guard !Task.isCancelled else { return }
+                self?.presentation.isExpanded = false
+            }
         }
     }
 

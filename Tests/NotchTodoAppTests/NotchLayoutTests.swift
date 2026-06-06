@@ -66,4 +66,10 @@ final class NotchLayoutTests: XCTestCase {
     func testPanelDoesNotUseSystemWindowShadow() {
         XCTAssertFalse(NotchLayout.usesWindowShadow)
     }
+
+    func testAnimationStagesContentAfterShape() {
+        XCTAssertEqual(NotchAnimation.contentRevealDelay, .milliseconds(70))
+        XCTAssertEqual(NotchAnimation.shapeCollapseDelay, .milliseconds(60))
+        XCTAssertGreaterThan(NotchAnimation.shapeDampingFraction, 0.9)
+    }
 }
