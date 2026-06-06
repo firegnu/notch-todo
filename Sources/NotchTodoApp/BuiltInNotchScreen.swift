@@ -1,0 +1,70 @@
+import AppKit
+import CoreGraphics
+
+enum NotchLayout {
+    static func isEligible(isBuiltIn: Bool, topSafeArea: CGFloat) -> Bool {
+        isBuiltIn && topSafeArea > 0
+    }
+
+    static func compactFrame(
+        screenFrame: CGRect,
+        notchWidth: CGFloat,
+        notchHeight: CGFloat
+    ) -> CGRect {
+        let width = max(220, notchWidth + 116)
+        let height = max(32, notchHeight)
+        return CGRect(
+            x: screenFrame.midX - width / 2,
+            y: screenFrame.maxY - height,
+            width: width,
+            height: height
+        )
+    }
+
+    static func expandedFrame(screenFrame: CGRect) -> CGRect {
+        let width: CGFloat = 360
+        let height = min(420, screenFrame.height - 40)
+        return CGRect(
+            x: screenFrame.midX - width / 2,
+            y: screenFrame.maxY - height,
+            width: width,
+            height: height
+        )
+    }
+}
+
+struct BuiltInNotchScreen {
+    let screen: NSScreen
+    let notchWidth: CGFloat
+    let notchHeight: CGFloat
+
+    static func current() -> BuiltInNotchScreen? {
+        NSScreen.screens.compactMap(make).first
+    }
+
+    private static func make(screen: NSScreen) -> BuiltInNotchScreen? {
+        guard let number = screen.deviceDescription[.init("NSScreenNumber")] as? NSNumber else {
+            return nil
+        }
+
+        let isBuiltIn = CGDisplayIsBuiltin(CGDirectDisplayID(number.uint32Value)) != 0
+        let topSafeArea = screen.safeAreaInsets.top
+        guard NotchLayout.isEligible(isBuiltIn: isBuiltIn, topSafeArea: topSafeArea) else {
+            return nil
+        }
+
+        let notchWidth: CGFloat
+        if let left = screen.auxiliaryTopLeftArea,
+           let right = screen.auxiliaryTopRightArea {
+            notchWidth = max(0, right.minX - left.maxX)
+        } else {
+            notchWidth = 180
+        }
+
+        return BuiltInNotchScreen(
+            screen: screen,
+            notchWidth: notchWidth,
+            notchHeight: topSafeArea
+        )
+    }
+}
