@@ -9,6 +9,17 @@ enum NotchAnimation {
     static let contentDuration = 0.16
 }
 
+enum TaskRowStyle {
+    static let cornerRadius: CGFloat = 9
+    static let fontSize: CGFloat = 12.5
+    static let focusedFontSize: CGFloat = 13
+    static let focusedCardPadding: CGFloat = 13
+    static let focusedCardCornerRadius: CGFloat = 13
+    static let normalOpacity = 0.045
+    static let hoverOpacity = 0.08
+    static let completedOpacity = 0.025
+}
+
 @MainActor
 final class NotchPresentationState: ObservableObject {
     @Published var isExpanded = false
@@ -34,6 +45,8 @@ final class NotchPresentationState: ObservableObject {
 }
 
 struct NotchPanelView: View {
+    @State private var hoveredTaskID: String?
+
     @ObservedObject var viewModel: TaskViewModel
     @ObservedObject var presentation: NotchPresentationState
     @ObservedObject var settings: AppSettingsState
@@ -166,11 +179,12 @@ struct NotchPanelView: View {
                     size: 18,
                     celebrationTrigger: isAllComplete
                 )
-                Text("Today")
+                Text("今天")
                     .font(.headline)
                 Spacer()
                 Text("\(viewModel.completedCount)/\(viewModel.totalCount)")
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.56))
                 headerButton(
                     systemName: presentation.isLocked ? "pin.fill" : "pin",
                     action: onToggleLock
@@ -195,10 +209,10 @@ struct NotchPanelView: View {
             Image(systemName: systemName)
                 .font(.system(size: 12, weight: .semibold))
                 .frame(width: 26, height: 26)
-                .background(.white.opacity(0.09), in: Circle())
+                .background(.white.opacity(0.07), in: Circle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.white.opacity(0.78))
+        .foregroundStyle(.white.opacity(0.68))
     }
 
     @ViewBuilder
@@ -225,14 +239,108 @@ struct NotchPanelView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
-                LazyVStack(spacing: 4) {
-                    ForEach(viewModel.tasks) { task in
-                        taskRow(task)
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if let focusedTask = viewModel.focusedTask {
+                        focusedTaskCard(focusedTask)
+
+                        if !viewModel.remainingTasks.isEmpty {
+                            sectionHeader("稍后")
+                                .padding(.top, 14)
+
+                            ForEach(viewModel.remainingTasks) { task in
+                                taskRow(task)
+                            }
+                        }
+                    } else {
+                        allCompleteView
+                    }
+
+                    if !viewModel.completedTasks.isEmpty {
+                        sectionHeader("已完成")
+                            .padding(.top, 14)
+
+                        ForEach(viewModel.completedTasks) { task in
+                            taskRow(task)
+                        }
                     }
                 }
             }
-            .scrollIndicators(.visible)
+            .scrollIndicators(.never)
         }
+    }
+
+    private func focusedTaskCard(_ task: TaskItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("接下来")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.7)
+                .textCase(.uppercase)
+                .foregroundStyle(.white.opacity(0.42))
+
+            Button {
+                onToggleTask(task)
+            } label: {
+                HStack(alignment: .top, spacing: 11) {
+                    checkbox(for: task)
+
+                    Text(task.text)
+                        .font(.system(size: TaskRowStyle.focusedFontSize, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.94))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Text("还剩 \(viewModel.incompleteCount) 项")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.48))
+                .padding(.leading, 27)
+        }
+        .padding(TaskRowStyle.focusedCardPadding)
+        .background(
+            Color(red: 0.065, green: 0.065, blue: 0.075),
+            in: RoundedRectangle(cornerRadius: TaskRowStyle.focusedCardCornerRadius)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: TaskRowStyle.focusedCardCornerRadius)
+                .stroke(.white.opacity(0.1), lineWidth: 1)
+        }
+    }
+
+    private var allCompleteView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(.green.opacity(0.78))
+            Text("今天的任务已完成")
+                .font(.system(size: 14, weight: .medium))
+            Text("做得不错")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.44))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 22)
+        .background(
+            Color(red: 0.055, green: 0.055, blue: 0.063),
+            in: RoundedRectangle(cornerRadius: 15)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 15)
+                .stroke(.white.opacity(0.08), lineWidth: 1)
+        }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.65)
+            .foregroundStyle(.white.opacity(0.38))
+            .padding(.horizontal, 6)
+            .padding(.bottom, 5)
     }
 
     private var settingsView: some View {
@@ -327,33 +435,59 @@ struct NotchPanelView: View {
         Image(systemName: systemName)
             .font(.system(size: 14, weight: .medium))
             .frame(width: 30, height: 30)
-            .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 8))
-            .foregroundStyle(.white.opacity(0.85))
+            .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+            .foregroundStyle(.white.opacity(0.72))
     }
 
     private func taskRow(_ task: TaskItem) -> some View {
         Button {
             onToggleTask(task)
         } label: {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(task.isCompleted ? .green : .white.opacity(0.85))
+            HStack(alignment: .top, spacing: 11) {
+                checkbox(for: task)
 
                 Text(task.text)
-                    .font(.system(size: 14))
+                    .font(.system(size: TaskRowStyle.fontSize))
                     .strikethrough(task.isCompleted)
-                    .foregroundStyle(.white.opacity(task.isCompleted ? 0.48 : 0.92))
+                    .foregroundStyle(.white.opacity(task.isCompleted ? 0.34 : 0.88))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 8)
+            .background(
+                .white.opacity(taskRowBackgroundOpacity(for: task)),
+                in: RoundedRectangle(cornerRadius: TaskRowStyle.cornerRadius)
+            )
         }
         .buttonStyle(.plain)
+        .padding(.vertical, 2)
+        .onHover { isHovered in
+            hoveredTaskID = isHovered ? task.id : nil
+        }
+        .animation(.easeOut(duration: 0.12), value: hoveredTaskID)
+    }
+
+    private func taskRowBackgroundOpacity(for task: TaskItem) -> Double {
+        if hoveredTaskID == task.id {
+            return TaskRowStyle.hoverOpacity
+        }
+        return task.isCompleted
+            ? TaskRowStyle.completedOpacity
+            : TaskRowStyle.normalOpacity
+    }
+
+    private func checkbox(for task: TaskItem) -> some View {
+        Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(
+                task.isCompleted
+                    ? Color.white.opacity(0.32)
+                    : Color.white.opacity(0.66)
+            )
     }
 
     private var isAllComplete: Bool {
@@ -366,8 +500,12 @@ private extension View {
     func settingsCard() -> some View {
         padding(12)
             .background(
-                .white.opacity(0.07),
+                Color(red: 0.055, green: 0.055, blue: 0.063),
                 in: RoundedRectangle(cornerRadius: 14)
             )
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(.white.opacity(0.09), lineWidth: 1)
+            }
     }
 }

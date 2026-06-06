@@ -3,6 +3,18 @@ import XCTest
 @testable import NotchTodoApp
 
 final class NotchLayoutTests: XCTestCase {
+    func testTaskRowCardsKeepSubtleVisualHierarchy() {
+        XCTAssertEqual(TaskRowStyle.cornerRadius, 9)
+        XCTAssertEqual(TaskRowStyle.fontSize, 12.5)
+        XCTAssertEqual(TaskRowStyle.focusedFontSize, 13)
+        XCTAssertEqual(TaskRowStyle.focusedCardPadding, 13)
+        XCTAssertEqual(TaskRowStyle.focusedCardCornerRadius, 13)
+        XCTAssertGreaterThan(TaskRowStyle.focusedFontSize, TaskRowStyle.fontSize)
+        XCTAssertLessThan(TaskRowStyle.normalOpacity, TaskRowStyle.hoverOpacity)
+        XCTAssertLessThan(TaskRowStyle.completedOpacity, TaskRowStyle.normalOpacity)
+        XCTAssertLessThanOrEqual(TaskRowStyle.hoverOpacity, 0.08)
+    }
+
     func testRequiresBuiltInScreenWithTopSafeArea() {
         XCTAssertTrue(
             NotchLayout.isEligible(isBuiltIn: true, topSafeArea: 32)

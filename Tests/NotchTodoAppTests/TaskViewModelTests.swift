@@ -33,6 +33,41 @@ final class TaskViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.compactLabel, "1/1")
     }
 
+    func testDisplayGroupsFocusFirstIncompleteAndPreserveOrder() {
+        let store = MockTaskFileStore()
+        store.loadResult = .success([
+            TaskItem(lineIndex: 1, text: "Done first", isCompleted: true),
+            TaskItem(lineIndex: 2, text: "Focus", isCompleted: false),
+            TaskItem(lineIndex: 3, text: "Later one", isCompleted: false),
+            TaskItem(lineIndex: 4, text: "Done second", isCompleted: true),
+            TaskItem(lineIndex: 5, text: "Later two", isCompleted: false),
+        ])
+        let viewModel = TaskViewModel()
+
+        viewModel.use(store: store)
+
+        XCTAssertEqual(viewModel.focusedTask?.text, "Focus")
+        XCTAssertEqual(viewModel.remainingTasks.map(\.text), ["Later one", "Later two"])
+        XCTAssertEqual(viewModel.completedTasks.map(\.text), ["Done first", "Done second"])
+        XCTAssertEqual(viewModel.incompleteCount, 3)
+    }
+
+    func testAllCompleteHasNoFocusedOrRemainingTask() {
+        let store = MockTaskFileStore()
+        store.loadResult = .success([
+            TaskItem(lineIndex: 1, text: "One", isCompleted: true),
+            TaskItem(lineIndex: 2, text: "Two", isCompleted: true),
+        ])
+        let viewModel = TaskViewModel()
+
+        viewModel.use(store: store)
+
+        XCTAssertNil(viewModel.focusedTask)
+        XCTAssertTrue(viewModel.remainingTasks.isEmpty)
+        XCTAssertEqual(viewModel.completedTasks.map(\.text), ["One", "Two"])
+        XCTAssertEqual(viewModel.incompleteCount, 0)
+    }
+
     func testSuccessfulToggleKeepsTaskInOriginalPosition() {
         let original = TaskItem(lineIndex: 1, text: "One", isCompleted: false)
         let completed = TaskItem(lineIndex: 1, text: "One", isCompleted: true)

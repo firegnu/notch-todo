@@ -17,6 +17,22 @@ final class TaskViewModel: ObservableObject {
         tasks.count
     }
 
+    var focusedTask: TaskItem? {
+        tasks.first { !$0.isCompleted }
+    }
+
+    var remainingTasks: [TaskItem] {
+        Array(tasks.lazy.filter { !$0.isCompleted }.dropFirst())
+    }
+
+    var completedTasks: [TaskItem] {
+        tasks.filter(\.isCompleted)
+    }
+
+    var incompleteCount: Int {
+        tasks.lazy.filter { !$0.isCompleted }.count
+    }
+
     var compactLabel: String {
         if errorMessage != nil {
             return "--/--"
