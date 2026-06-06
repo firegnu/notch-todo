@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 final class NotchWindowController {
     private let viewModel: TaskViewModel
+    private let presentation = NotchPresentationState()
     private var panel: NSPanel?
     private var screenInfo: BuiltInNotchScreen?
     private var collapseTask: Task<Void, Never>?
@@ -11,8 +12,14 @@ final class NotchWindowController {
     private var localClickMonitor: Any?
     private var screenObserver: NSObjectProtocol?
 
-    private(set) var isExpanded = false
-    private(set) var isLocked = false
+    private var isExpanded: Bool {
+        presentation.isExpanded
+    }
+
+    private var isLocked: Bool {
+        get { presentation.isLocked }
+        set { presentation.isLocked = newValue }
+    }
 
     init(viewModel: TaskViewModel) {
         self.viewModel = viewModel
@@ -34,11 +41,12 @@ final class NotchWindowController {
         }
 
         self.screenInfo = screenInfo
+        presentation.notchWidth = screenInfo.notchWidth
+        presentation.notchHeight = screenInfo.notchHeight
         if panel == nil {
             panel = makePanel()
         }
-        updateContent()
-        updateFrame(animated: false)
+        updateFrame()
         panel?.orderFrontRegardless()
     }
 
@@ -55,7 +63,7 @@ final class NotchWindowController {
             backing: .buffered,
             defer: false
         )
-        panel.level = .statusBar
+        panel.level = NotchLayout.windowLevel
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -63,18 +71,10 @@ final class NotchWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isMovable = false
         panel.isReleasedWhenClosed = false
-        return panel
-    }
-
-    private func updateContent() {
-        guard let panel, let screenInfo else { return }
 
         let view = NotchPanelView(
             viewModel: viewModel,
-            notchWidth: screenInfo.notchWidth,
-            notchHeight: screenInfo.notchHeight,
-            isExpanded: isExpanded,
-            isLocked: isLocked,
+            presentation: presentation,
             onHoverChanged: { [weak self] isInside in
                 self?.handleHover(isInside)
             },
@@ -86,6 +86,7 @@ final class NotchWindowController {
             }
         )
         panel.contentViewController = NSHostingController(rootView: view)
+        return panel
     }
 
     private func handleHover(_ isInside: Bool) {
@@ -109,30 +110,23 @@ final class NotchWindowController {
         } else {
             removeClickMonitors()
         }
-        updateContent()
     }
 
     private func setExpanded(_ expanded: Bool) {
         guard expanded != isExpanded else { return }
-        isExpanded = expanded
+        presentation.isExpanded = expanded
         if !expanded {
             isLocked = false
             removeClickMonitors()
         }
-        updateContent()
-        updateFrame(animated: true)
     }
 
-    private func updateFrame(animated: Bool) {
+    private func updateFrame() {
         guard let panel, let screenInfo else { return }
-        let frame = isExpanded
-            ? NotchLayout.expandedFrame(screenFrame: screenInfo.screen.frame)
-            : NotchLayout.compactFrame(
-                screenFrame: screenInfo.screen.frame,
-                notchWidth: screenInfo.notchWidth,
-                notchHeight: screenInfo.notchHeight
-            )
-        panel.setFrame(frame, display: true, animate: animated)
+        panel.setFrame(
+            NotchLayout.panelFrame(screenFrame: screenInfo.screen.frame),
+            display: true
+        )
     }
 
     private func installClickMonitors() {
@@ -152,7 +146,15 @@ final class NotchWindowController {
     }
 
     private func collapseIfClickIsOutside() {
-        guard let panel, !panel.frame.contains(NSEvent.mouseLocation) else { return }
+        guard let panel else { return }
+        let visibleFrame = isExpanded
+            ? panel.frame
+            : NotchLayout.compactFrame(
+                screenFrame: screenInfo?.screen.frame ?? panel.frame,
+                notchWidth: presentation.notchWidth,
+                notchHeight: presentation.notchHeight
+            )
+        guard !visibleFrame.contains(NSEvent.mouseLocation) else { return }
         isLocked = false
         setExpanded(false)
     }

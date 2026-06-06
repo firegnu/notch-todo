@@ -15,14 +15,26 @@ final class NotchLayoutTests: XCTestCase {
         )
     }
 
-    func testCompactFrameIsCenteredAtTopAndIncludesNotchWidth() {
+    func testCompactFrameExpandsSymmetricallyAroundPhysicalNotch() {
         let frame = NotchLayout.compactFrame(
             screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982),
             notchWidth: 180,
             notchHeight: 32
         )
 
-        XCTAssertEqual(frame, CGRect(x: 608, y: 950, width: 296, height: 32))
+        XCTAssertEqual(frame, CGRect(x: 598, y: 950, width: 316, height: 32))
+        XCTAssertEqual(frame.midX, 756)
+    }
+
+    func testNotchWidthUsesAuxiliaryAreaWidths() {
+        XCTAssertEqual(
+            NotchLayout.notchWidth(
+                screenWidth: 1512,
+                leftAuxiliaryWidth: 664,
+                rightAuxiliaryWidth: 664
+            ),
+            188
+        )
     }
 
     func testExpandedFrameGrowsDownFromScreenTop() {
@@ -31,5 +43,18 @@ final class NotchLayoutTests: XCTestCase {
         )
 
         XCTAssertEqual(frame, CGRect(x: 576, y: 562, width: 360, height: 420))
+    }
+
+    func testPanelFrameAlwaysUsesMaximumExpandedSize() {
+        let screenFrame = CGRect(x: 0, y: 0, width: 1512, height: 982)
+
+        XCTAssertEqual(
+            NotchLayout.panelFrame(screenFrame: screenFrame),
+            NotchLayout.expandedFrame(screenFrame: screenFrame)
+        )
+    }
+
+    func testWindowUsesSystemStatusBarLevel() {
+        XCTAssertEqual(NotchLayout.windowLevel, .statusBar)
     }
 }

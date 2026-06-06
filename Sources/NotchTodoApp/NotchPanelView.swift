@@ -1,47 +1,77 @@
 import SwiftUI
 import NotchTodoCore
 
+@MainActor
+final class NotchPresentationState: ObservableObject {
+    @Published var isExpanded = false
+    @Published var isLocked = false
+    @Published var notchWidth: CGFloat = 180
+    @Published var notchHeight: CGFloat = 32
+}
+
 struct NotchPanelView: View {
     @ObservedObject var viewModel: TaskViewModel
+    @ObservedObject var presentation: NotchPresentationState
 
-    let notchWidth: CGFloat
-    let notchHeight: CGFloat
-    let isExpanded: Bool
-    let isLocked: Bool
     let onHoverChanged: (Bool) -> Void
     let onToggleLock: () -> Void
     let onToggleTask: (TaskItem) -> Void
 
     var body: some View {
-        Group {
-            if isExpanded {
-                expandedView
-            } else {
+        ZStack(alignment: .top) {
+            ZStack(alignment: .top) {
                 compactView
+                    .opacity(presentation.isExpanded ? 0 : 1)
+                    .scaleEffect(presentation.isExpanded ? 0.96 : 1)
+                    .zIndex(presentation.isExpanded ? 0 : 1)
+
+                expandedView
+                    .opacity(presentation.isExpanded ? 1 : 0)
+                    .scaleEffect(presentation.isExpanded ? 1 : 0.98, anchor: .top)
+                    .allowsHitTesting(presentation.isExpanded)
+                    .zIndex(presentation.isExpanded ? 1 : 0)
             }
-        }
-        .foregroundStyle(.white)
-        .background(.black)
-        .clipShape(
-            UnevenRoundedRectangle(
-                bottomLeadingRadius: isExpanded ? 18 : 10,
-                bottomTrailingRadius: isExpanded ? 18 : 10
+            .foregroundStyle(.white)
+            .frame(
+                width: presentation.isExpanded
+                    ? 360
+                    : presentation.notchWidth + NotchLayout.compactSideWidth * 2,
+                height: presentation.isExpanded ? 420 : presentation.notchHeight,
+                alignment: .top
             )
+            .clipped()
+            .background(.black)
+            .clipShape(
+                UnevenRoundedRectangle(
+                    bottomLeadingRadius: presentation.isExpanded ? 18 : 10,
+                    bottomTrailingRadius: presentation.isExpanded ? 18 : 10
+                )
+            )
+            .contentShape(Rectangle())
+            .onHover(perform: onHoverChanged)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(
+            .spring(response: 0.32, dampingFraction: 0.86),
+            value: presentation.isExpanded
         )
-        .onHover(perform: onHoverChanged)
     }
 
     private var compactView: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
             Color.clear
-                .frame(width: notchWidth)
+                .frame(width: NotchLayout.compactSideWidth)
+
+            Color.clear
+                .frame(width: presentation.notchWidth)
 
             Text(viewModel.compactLabel)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .lineLimit(1)
-                .padding(.trailing, 10)
+                .minimumScaleFactor(0.75)
+                .frame(width: NotchLayout.compactSideWidth)
         }
-        .frame(height: max(32, notchHeight))
+        .frame(height: presentation.notchHeight)
     }
 
     private var expandedView: some View {
@@ -53,13 +83,13 @@ struct NotchPanelView: View {
                     Spacer()
                     Text("\(viewModel.completedCount)/\(viewModel.totalCount)")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    Image(systemName: isLocked ? "pin.fill" : "pin")
+                    Image(systemName: presentation.isLocked ? "pin.fill" : "pin")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
                 .padding(.horizontal, 16)
-                .padding(.top, max(12, notchHeight + 4))
+                .padding(.top, max(12, presentation.notchHeight + 4))
                 .padding(.bottom, 12)
             }
             .buttonStyle(.plain)

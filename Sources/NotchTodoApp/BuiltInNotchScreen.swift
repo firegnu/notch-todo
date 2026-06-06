@@ -2,6 +2,9 @@ import AppKit
 import CoreGraphics
 
 enum NotchLayout {
+    static let compactSideWidth: CGFloat = 68
+    static let windowLevel = NSWindow.Level.statusBar
+
     static func isEligible(isBuiltIn: Bool, topSafeArea: CGFloat) -> Bool {
         isBuiltIn && topSafeArea > 0
     }
@@ -11,14 +14,22 @@ enum NotchLayout {
         notchWidth: CGFloat,
         notchHeight: CGFloat
     ) -> CGRect {
-        let width = max(220, notchWidth + 116)
-        let height = max(32, notchHeight)
+        let width = notchWidth + compactSideWidth * 2
+        let height = notchHeight
         return CGRect(
             x: screenFrame.midX - width / 2,
             y: screenFrame.maxY - height,
             width: width,
             height: height
         )
+    }
+
+    static func notchWidth(
+        screenWidth: CGFloat,
+        leftAuxiliaryWidth: CGFloat,
+        rightAuxiliaryWidth: CGFloat
+    ) -> CGFloat {
+        max(0, screenWidth - leftAuxiliaryWidth - rightAuxiliaryWidth + 4)
     }
 
     static func expandedFrame(screenFrame: CGRect) -> CGRect {
@@ -30,6 +41,10 @@ enum NotchLayout {
             width: width,
             height: height
         )
+    }
+
+    static func panelFrame(screenFrame: CGRect) -> CGRect {
+        expandedFrame(screenFrame: screenFrame)
     }
 }
 
@@ -56,7 +71,11 @@ struct BuiltInNotchScreen {
         let notchWidth: CGFloat
         if let left = screen.auxiliaryTopLeftArea,
            let right = screen.auxiliaryTopRightArea {
-            notchWidth = max(0, right.minX - left.maxX)
+            notchWidth = NotchLayout.notchWidth(
+                screenWidth: screen.frame.width,
+                leftAuxiliaryWidth: left.width,
+                rightAuxiliaryWidth: right.width
+            )
         } else {
             notchWidth = 180
         }
