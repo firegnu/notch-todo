@@ -26,5 +26,7 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>用于在面板中只读显示今天的 Apple Calendar 日程。</string>
 </dict>
 </plist>

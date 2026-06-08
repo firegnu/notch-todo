@@ -44,6 +44,19 @@ enum SettingsLayout {
     static let scrollsWhenContentOverflows = true
 }
 
+enum CalendarAgendaCopy {
+    static let sectionTitle = "日程"
+    static let enableTitle = "启用 Apple Calendar"
+    static let chooseCalendarTitle = "选择日历"
+    static let emptyTitle = "今日日程为空"
+}
+
+enum CalendarAgendaStyle {
+    static let maxVisibleRows = 3
+    static let emptyOpacity = 0.42
+    static let taskStateCardHeight: CGFloat = 210
+}
+
 struct TaskPanelStateContent {
     let symbol: String
     let title: String
@@ -124,6 +137,7 @@ struct NotchPanelView: View {
     @State private var hoveredTaskID: String?
 
     @ObservedObject var viewModel: TaskViewModel
+    @ObservedObject var calendarAgenda: CalendarAgendaViewModel
     @ObservedObject var presentation: NotchPresentationState
     @ObservedObject var settings: AppSettingsState
 
@@ -137,6 +151,9 @@ struct NotchPanelView: View {
     let onReloadTasks: () -> Void
     let onOpenTaskFile: () -> Void
     let onRevealTaskFile: () -> Void
+    let onEnableCalendarAgenda: () -> Void
+    let onSelectCalendar: () -> Void
+    let onReloadCalendarAgenda: () -> Void
     let onSetLaunchAtLogin: @MainActor @Sendable (Bool) -> Void
     let onQuit: () -> Void
 
@@ -299,6 +316,31 @@ struct NotchPanelView: View {
 
     @ViewBuilder
     private var content: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                taskContent
+
+                calendarAgendaSection
+                    .padding(.top, 14)
+            }
+        }
+        .scrollIndicators(.never)
+        .overlay(alignment: .top) {
+            taskListScrollFade(edge: .top)
+        }
+        .overlay(alignment: .bottom) {
+            taskListScrollFade(edge: .bottom)
+        }
+        .animation(
+            reduceMotion
+                ? nil
+                : .easeOut(duration: TaskInteractionStyle.toggleDuration),
+            value: viewModel.tasks
+        )
+    }
+
+    @ViewBuilder
+    private var taskContent: some View {
         if let error = viewModel.error {
             panelStateView(
                 error.stateContent,
@@ -306,49 +348,38 @@ struct NotchPanelView: View {
                 actionTitle: error.recoveryActionTitle,
                 action: recoveryAction(for: error)
             )
+            .frame(height: CalendarAgendaStyle.taskStateCardHeight)
         } else if viewModel.tasks.isEmpty {
             panelStateView(TaskPanelStateContent.empty)
-        } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if let focusedTask = viewModel.focusedTask {
-                        focusedTaskCard(focusedTask)
+                .frame(height: CalendarAgendaStyle.taskStateCardHeight)
+        } else if let focusedTask = viewModel.focusedTask {
+            focusedTaskCard(focusedTask)
 
-                        if !viewModel.remainingTasks.isEmpty {
-                            sectionHeader("稍后")
-                                .padding(.top, 14)
+            if !viewModel.remainingTasks.isEmpty {
+                sectionHeader("稍后")
+                    .padding(.top, 14)
 
-                            ForEach(viewModel.remainingTasks) { task in
-                                taskRow(task)
-                            }
-                        }
-                    } else {
-                        allCompleteView
-                    }
-
-                    if !viewModel.completedTasks.isEmpty {
-                        sectionHeader("已完成")
-                            .padding(.top, 14)
-
-                        ForEach(viewModel.completedTasks) { task in
-                            taskRow(task)
-                        }
-                    }
+                ForEach(viewModel.remainingTasks) { task in
+                    taskRow(task)
                 }
             }
-            .scrollIndicators(.never)
-            .overlay(alignment: .top) {
-                taskListScrollFade(edge: .top)
+
+            completedTasksSection
+        } else {
+            allCompleteView
+            completedTasksSection
+        }
+    }
+
+    @ViewBuilder
+    private var completedTasksSection: some View {
+        if !viewModel.completedTasks.isEmpty {
+            sectionHeader("已完成")
+                .padding(.top, 14)
+
+            ForEach(viewModel.completedTasks) { task in
+                taskRow(task)
             }
-            .overlay(alignment: .bottom) {
-                taskListScrollFade(edge: .bottom)
-            }
-            .animation(
-                reduceMotion
-                    ? nil
-                    : .easeOut(duration: TaskInteractionStyle.toggleDuration),
-                value: viewModel.tasks
-            )
         }
     }
 
@@ -361,6 +392,53 @@ struct NotchPanelView: View {
         case .generic:
             nil
         }
+    }
+
+    @ViewBuilder
+    private var calendarAgendaSection: some View {
+        if calendarAgenda.isEnabled {
+            VStack(alignment: .leading, spacing: 7) {
+                sectionHeader(CalendarAgendaCopy.sectionTitle)
+
+                if let errorMessage = calendarAgenda.errorMessage {
+                    Text(errorMessage)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(CalendarAgendaStyle.emptyOpacity))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 6)
+                } else if calendarAgenda.events.isEmpty {
+                    Text(CalendarAgendaCopy.emptyTitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(CalendarAgendaStyle.emptyOpacity))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 6)
+                } else {
+                    ForEach(Array(calendarAgenda.events.prefix(CalendarAgendaStyle.maxVisibleRows))) { event in
+                        calendarAgendaRow(event)
+                    }
+                }
+            }
+        }
+    }
+
+    private func calendarAgendaRow(_ event: CalendarAgendaItem) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Text(event.timeText)
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.48))
+                .frame(width: 72, alignment: .leading)
+            Text(event.title)
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.82))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(
+            .white.opacity(0.035),
+            in: RoundedRectangle(cornerRadius: TaskRowStyle.cornerRadius)
+        )
     }
 
     private func focusedTaskCard(_ task: TaskItem) -> some View {
@@ -524,10 +602,44 @@ struct NotchPanelView: View {
                             trailing: "刷新"
                         )
                     }
+                .buttonStyle(.plain)
+            }
+
+            if calendarAgenda.isEnabled {
+                Button(action: onSelectCalendar) {
+                    settingsRow(
+                        icon: "calendar",
+                        title: calendarAgenda.selectedCalendarTitle ?? CalendarAgendaCopy.chooseCalendarTitle,
+                        subtitle: calendarAgenda.errorMessage ?? "只读显示今日日程",
+                        trailing: "更换"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                if calendarAgenda.isConfigured {
+                    Button(action: onReloadCalendarAgenda) {
+                        settingsRow(
+                            icon: "arrow.clockwise.circle",
+                            title: "重新加载日程",
+                            subtitle: CalendarAgendaCopy.sectionTitle,
+                            trailing: "刷新"
+                        )
+                    }
                     .buttonStyle(.plain)
                 }
+            } else {
+                Button(action: onEnableCalendarAgenda) {
+                    settingsRow(
+                        icon: "calendar.badge.plus",
+                        title: CalendarAgendaCopy.enableTitle,
+                        subtitle: "只读显示今天的日程",
+                        trailing: "启用"
+                    )
+                }
+                .buttonStyle(.plain)
+            }
 
-                HStack(spacing: 12) {
+            HStack(spacing: 12) {
                     settingsIcon("power")
                     VStack(alignment: .leading, spacing: 2) {
                         Text("登录时启动")

@@ -9,21 +9,40 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     private let viewModel = TaskViewModel()
+    private let calendarAgenda = CalendarAgendaViewModel(
+        provider: EventKitCalendarAgendaProvider()
+    )
     private let launchAtLogin = LaunchAtLoginController()
     private lazy var settings = AppSettingsState(
         launchAtLoginEnabled: launchAtLogin.isEnabled
     )
     private var notchWindowController: NotchWindowController?
     private var taskFileStore: TaskFileStore?
+    private var calendarAgendaRefreshTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
         notchWindowController = NotchWindowController(
             viewModel: viewModel,
+            calendarAgenda: calendarAgenda,
             settings: settings,
             onSelectTaskFile: { [weak self] in
                 self?.selectTaskFile()
+            },
+            onEnableCalendarAgenda: { [weak self] in
+                self?.enableCalendarAgenda()
+            },
+            onSelectCalendar: { [weak self] in
+                self?.selectCalendarAgenda()
+            },
+            onReloadCalendarAgenda: { [weak self] in
+                self?.calendarAgenda.reload()
+            },
+            onPanelExpanded: { [weak self] in
+                self?.calendarAgenda.reloadIfStale(
+                    staleAfter: CalendarAgendaRefreshPolicy.panelRefreshInterval
+                )
             },
             onSetLaunchAtLogin: { [weak self] enabled in
                 self?.setLaunchAtLogin(enabled)
@@ -33,6 +52,8 @@ final class AppController: NSObject, NSApplicationDelegate {
             }
         )
         restoreTaskFile()
+        calendarAgenda.reload()
+        startCalendarAgendaRefreshLoop()
         notchWindowController?.show()
 
         if taskFileStore == nil {
@@ -41,6 +62,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        calendarAgendaRefreshTask?.cancel()
         taskFileStore?.stopMonitoring()
         notchWindowController?.hide()
     }
@@ -96,5 +118,58 @@ final class AppController: NSObject, NSApplicationDelegate {
         taskFileStore = store
         settings.setTaskFile(url)
         viewModel.use(store: store)
+    }
+
+    private func enableCalendarAgenda() {
+        Task { @MainActor in
+            guard await calendarAgenda.requestAccessAndEnable() else { return }
+            selectCalendarAgenda()
+        }
+    }
+
+    private func selectCalendarAgenda() {
+        Task { @MainActor in
+            guard await calendarAgenda.requestAccessAndEnable() else { return }
+
+            let calendars = calendarAgenda.availableCalendars
+            guard !calendars.isEmpty else {
+                calendarAgenda.showError("没有可用的 Calendar 日历")
+                return
+            }
+
+            let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 26))
+            calendars.forEach { selection in
+                popup.addItem(withTitle: selection.displayTitle)
+            }
+            if let selectedID = calendarAgenda.selectedCalendarID,
+               let index = calendars.firstIndex(where: { $0.id == selectedID }) {
+                popup.selectItem(at: index)
+            }
+
+            let alert = NSAlert()
+            alert.messageText = "选择 Apple Calendar"
+            alert.informativeText = "Notch Todo 只读显示所选日历中今天剩余的日程。"
+            alert.accessoryView = popup
+            alert.addButton(withTitle: "选择")
+            alert.addButton(withTitle: "取消")
+
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            calendarAgenda.selectCalendar(calendars[popup.indexOfSelectedItem])
+        }
+    }
+
+    private func startCalendarAgendaRefreshLoop() {
+        calendarAgendaRefreshTask?.cancel()
+        calendarAgendaRefreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: CalendarAgendaRefreshPolicy.backgroundRefreshDuration)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self?.calendarAgenda.reloadIfStale(
+                        staleAfter: CalendarAgendaRefreshPolicy.backgroundRefreshInterval
+                    )
+                }
+            }
+        }
     }
 }

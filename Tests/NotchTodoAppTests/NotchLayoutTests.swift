@@ -87,6 +87,19 @@ final class NotchLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(TaskListScrollFade.opacity, 0.18)
     }
 
+    func testCalendarAgendaCopyStaysSeparateFromTasks() {
+        XCTAssertEqual(CalendarAgendaCopy.sectionTitle, "日程")
+        XCTAssertEqual(CalendarAgendaCopy.enableTitle, "启用 Apple Calendar")
+        XCTAssertEqual(CalendarAgendaCopy.chooseCalendarTitle, "选择日历")
+        XCTAssertEqual(CalendarAgendaCopy.emptyTitle, "今日日程为空")
+    }
+
+    func testCalendarAgendaStyleStaysCompact() {
+        XCTAssertEqual(CalendarAgendaStyle.maxVisibleRows, 3)
+        XCTAssertLessThanOrEqual(CalendarAgendaStyle.emptyOpacity, 0.45)
+        XCTAssertEqual(CalendarAgendaStyle.taskStateCardHeight, 210)
+    }
+
     func testNotchWidthUsesAuxiliaryAreaWidths() {
         XCTAssertEqual(
             NotchLayout.notchWidth(

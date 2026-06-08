@@ -4,8 +4,13 @@ import SwiftUI
 @MainActor
 final class NotchWindowController {
     private let viewModel: TaskViewModel
+    private let calendarAgenda: CalendarAgendaViewModel
     private let settings: AppSettingsState
     private let onSelectTaskFile: () -> Void
+    private let onEnableCalendarAgenda: () -> Void
+    private let onSelectCalendar: () -> Void
+    private let onReloadCalendarAgenda: () -> Void
+    private let onPanelExpanded: () -> Void
     private let onSetLaunchAtLogin: @MainActor @Sendable (Bool) -> Void
     private let onQuit: () -> Void
     private let presentation = NotchPresentationState()
@@ -28,14 +33,24 @@ final class NotchWindowController {
 
     init(
         viewModel: TaskViewModel,
+        calendarAgenda: CalendarAgendaViewModel,
         settings: AppSettingsState,
         onSelectTaskFile: @escaping () -> Void,
+        onEnableCalendarAgenda: @escaping () -> Void,
+        onSelectCalendar: @escaping () -> Void,
+        onReloadCalendarAgenda: @escaping () -> Void,
+        onPanelExpanded: @escaping () -> Void,
         onSetLaunchAtLogin: @escaping @MainActor @Sendable (Bool) -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.viewModel = viewModel
+        self.calendarAgenda = calendarAgenda
         self.settings = settings
         self.onSelectTaskFile = onSelectTaskFile
+        self.onEnableCalendarAgenda = onEnableCalendarAgenda
+        self.onSelectCalendar = onSelectCalendar
+        self.onReloadCalendarAgenda = onReloadCalendarAgenda
+        self.onPanelExpanded = onPanelExpanded
         self.onSetLaunchAtLogin = onSetLaunchAtLogin
         self.onQuit = onQuit
         screenObserver = NotificationCenter.default.addObserver(
@@ -90,6 +105,7 @@ final class NotchWindowController {
 
         let view = NotchPanelView(
             viewModel: viewModel,
+            calendarAgenda: calendarAgenda,
             presentation: presentation,
             settings: settings,
             onHoverChanged: { [weak self] isInside in
@@ -122,6 +138,9 @@ final class NotchWindowController {
             onRevealTaskFile: { [weak self] in
                 self?.revealTaskFile()
             },
+            onEnableCalendarAgenda: onEnableCalendarAgenda,
+            onSelectCalendar: onSelectCalendar,
+            onReloadCalendarAgenda: onReloadCalendarAgenda,
             onSetLaunchAtLogin: onSetLaunchAtLogin,
             onQuit: onQuit
         )
@@ -183,6 +202,7 @@ final class NotchWindowController {
         animationTask?.cancel()
 
         if expanded {
+            onPanelExpanded()
             if !presentation.isExpanded {
                 presentation.isExpanded = true
             }

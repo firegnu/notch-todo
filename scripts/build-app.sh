@@ -23,5 +23,5 @@ cp "$ROOT/Resources/labubu-pixel-blink.png" "$APP/Contents/Resources/"
 cp "$ROOT/Resources/labubu-pixel-blink@2x.png" "$APP/Contents/Resources/"
 cp "$ROOT/Resources/labubu-pixel-blink@3x.png" "$APP/Contents/Resources/"
 
-codesign --force --deep --sign - "$APP"
+codesign --force --deep --options runtime --entitlements "$ROOT/Resources/NotchTodo.entitlements" --sign - "$APP"
 printf 'Built %s\n' "$APP"
