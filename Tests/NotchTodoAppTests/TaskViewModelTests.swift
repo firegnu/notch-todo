@@ -21,7 +21,7 @@ final class TaskViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.compactLabel, "2/3")
     }
 
-    func testAllCompleteKeepsProgressLabelCompact() {
+    func testAllCompleteUsesQuietCompactLabel() {
         let store = MockTaskFileStore()
         store.loadResult = .success([
             TaskItem(lineIndex: 1, text: "Done", isCompleted: true),
@@ -30,7 +30,21 @@ final class TaskViewModelTests: XCTestCase {
 
         viewModel.use(store: store)
 
-        XCTAssertEqual(viewModel.compactLabel, "1/1")
+        XCTAssertEqual(viewModel.compactLabel, "✓")
+    }
+
+    func testExternalChangeRestoresNormalCompactLabelWhenIncompleteTaskReturns() async {
+        let completed = TaskItem(lineIndex: 1, text: "Done", isCompleted: true)
+        let pending = TaskItem(lineIndex: 2, text: "Pending", isCompleted: false)
+        let store = MockTaskFileStore()
+        store.loadResult = .success([completed])
+        let viewModel = TaskViewModel()
+        viewModel.use(store: store)
+
+        store.emit(.success([completed, pending]))
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.compactLabel, "1/2")
     }
 
     func testDisplayGroupsFocusFirstIncompleteAndPreserveOrder() {
@@ -97,6 +111,112 @@ final class TaskViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.tasks, [original])
         XCTAssertNotNil(viewModel.errorMessage)
+    }
+
+    func testLoadClassifiesMissingFileError() {
+        let store = MockTaskFileStore()
+        store.loadResult = .failure(CocoaError(.fileNoSuchFile))
+        let viewModel = TaskViewModel()
+
+        viewModel.use(store: store)
+
+        XCTAssertEqual(viewModel.error?.kind, .fileMissing)
+    }
+
+    func testLoadClassifiesMarkdownFormatError() {
+        let store = MockTaskFileStore()
+        store.loadResult = .failure(MarkdownTaskParser.Error.missingTasksSection)
+        let viewModel = TaskViewModel()
+
+        viewModel.use(store: store)
+
+        XCTAssertEqual(viewModel.error?.kind, .markdownFormat)
+    }
+
+    func testLoadClassifiesStaleBookmarkAsPermissionLost() {
+        let store = MockTaskFileStore()
+        store.loadResult = .failure(TaskFileStore.Error.staleBookmark)
+        let viewModel = TaskViewModel()
+
+        viewModel.use(store: store)
+
+        XCTAssertEqual(viewModel.error?.kind, .permissionLost)
+        XCTAssertEqual(viewModel.error?.recoveryActionTitle, "重新选择文件")
+    }
+
+    func testToggleClassifiesWriteConflictError() {
+        let original = TaskItem(lineIndex: 1, text: "One", isCompleted: false)
+        let store = MockTaskFileStore()
+        store.loadResult = .success([original])
+        store.toggleResult = .failure(MarkdownTaskParser.Error.taskConflict)
+        let viewModel = TaskViewModel()
+        viewModel.use(store: store)
+
+        viewModel.toggle(original)
+
+        XCTAssertEqual(viewModel.error?.kind, .writeConflict)
+    }
+
+    func testReloadTasksReplacesTasksAndClearsWriteConflictError() {
+        let original = TaskItem(lineIndex: 1, text: "One", isCompleted: false)
+        let changed = TaskItem(lineIndex: 1, text: "Changed", isCompleted: false)
+        let store = MockTaskFileStore()
+        store.loadResult = .success([original])
+        store.toggleResult = .failure(MarkdownTaskParser.Error.taskConflict)
+        let viewModel = TaskViewModel()
+        viewModel.use(store: store)
+        viewModel.toggle(original)
+
+        store.loadResult = .success([changed])
+        viewModel.reloadTasks()
+
+        XCTAssertEqual(viewModel.tasks, [changed])
+        XCTAssertNil(viewModel.error)
+    }
+
+    func testReloadTasksClassifiesReadFailure() {
+        let original = TaskItem(lineIndex: 1, text: "One", isCompleted: false)
+        let store = MockTaskFileStore()
+        store.loadResult = .success([original])
+        let viewModel = TaskViewModel()
+        viewModel.use(store: store)
+
+        store.loadResult = .failure(MarkdownTaskParser.Error.missingTasksSection)
+        viewModel.reloadTasks()
+
+        XCTAssertTrue(viewModel.tasks.isEmpty)
+        XCTAssertEqual(viewModel.error?.kind, .markdownFormat)
+    }
+
+    func testOpenTaskFileClassifiesMissingFileWithoutOpening() {
+        let store = MockTaskFileStore()
+        store.loadResult = .success([])
+        let viewModel = TaskViewModel()
+        viewModel.use(store: store)
+
+        viewModel.openTaskFile()
+
+        XCTAssertEqual(viewModel.error?.kind, .fileMissing)
+    }
+
+    func testRevealTaskFileClassifiesMissingFileWithoutRevealing() {
+        let store = MockTaskFileStore()
+        store.loadResult = .success([])
+        let viewModel = TaskViewModel()
+        viewModel.use(store: store)
+
+        viewModel.revealTaskFile()
+
+        XCTAssertEqual(viewModel.error?.kind, .fileMissing)
+    }
+
+    func testShowPermissionLostErrorUsesPermissionKind() {
+        let viewModel = TaskViewModel()
+
+        viewModel.showError(.permissionLost(message: "任务文件权限已失效，请重新选择文件"))
+
+        XCTAssertEqual(viewModel.error?.kind, .permissionLost)
+        XCTAssertEqual(viewModel.errorMessage, "任务文件权限已失效，请重新选择文件")
     }
 
     func testExternalChangeReplacesTasks() async {

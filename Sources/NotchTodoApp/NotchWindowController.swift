@@ -95,6 +95,9 @@ final class NotchWindowController {
             onHoverChanged: { [weak self] isInside in
                 self?.handleHover(isInside)
             },
+            onCompactTap: { [weak self] in
+                self?.expandFromCompactTap()
+            },
             onToggleLock: { [weak self] in
                 self?.toggleLock()
             },
@@ -109,6 +112,15 @@ final class NotchWindowController {
             },
             onSelectTaskFile: { [weak self] in
                 self?.selectTaskFile()
+            },
+            onReloadTasks: { [weak viewModel] in
+                viewModel?.reloadTasks()
+            },
+            onOpenTaskFile: { [weak self] in
+                self?.openTaskFile()
+            },
+            onRevealTaskFile: { [weak self] in
+                self?.revealTaskFile()
             },
             onSetLaunchAtLogin: onSetLaunchAtLogin,
             onQuit: onQuit
@@ -131,6 +143,14 @@ final class NotchWindowController {
         }
     }
 
+    private func openTaskFile() {
+        viewModel.openTaskFile()
+    }
+
+    private func revealTaskFile() {
+        viewModel.revealTaskFile()
+    }
+
     private func handleHover(_ isInside: Bool) {
         collapseTask?.cancel()
         if isInside {
@@ -142,6 +162,11 @@ final class NotchWindowController {
                 self?.setExpanded(false)
             }
         }
+    }
+
+    private func expandFromCompactTap() {
+        presentation.expandFromCompactTap()
+        setExpanded(true)
     }
 
     private func toggleLock() {

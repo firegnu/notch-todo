@@ -22,6 +22,31 @@ final class NotchLayoutTests: XCTestCase {
         XCTAssertEqual(TaskPanelStateContent.error.title, "无法读取任务")
     }
 
+    func testErrorPresentationKeepsSpecificCopyAndRestrainedActions() {
+        XCTAssertEqual(TaskPanelError.fileMissing(message: "missing").stateContent.title, "任务文件不存在")
+        XCTAssertEqual(TaskPanelError.noFileSelected(message: "select").stateContent.title, "请选择任务文件")
+        XCTAssertEqual(TaskPanelError.permissionLost(message: "lost").stateContent.title, "需要重新授权")
+        XCTAssertEqual(TaskPanelError.markdownFormat(message: "bad").stateContent.title, "Tasks 区域格式错误")
+        XCTAssertEqual(TaskPanelError.writeConflict(message: "conflict").stateContent.title, "任务已被外部修改")
+        XCTAssertEqual(TaskPanelError.generic(message: "other").stateContent.title, "无法读取任务")
+
+        XCTAssertEqual(TaskPanelError.fileMissing(message: "missing").recoveryActionTitle, "重新选择文件")
+        XCTAssertEqual(TaskPanelError.noFileSelected(message: "select").recoveryActionTitle, "选择文件")
+        XCTAssertEqual(TaskPanelError.permissionLost(message: "lost").recoveryActionTitle, "重新选择文件")
+        XCTAssertEqual(TaskPanelError.markdownFormat(message: "bad").recoveryActionTitle, "重新选择文件")
+        XCTAssertEqual(TaskPanelError.writeConflict(message: "conflict").recoveryActionTitle, "重新加载")
+    }
+
+    func testSettingsActionCopyStaysExplicitAboutDefaultApp() {
+        XCTAssertEqual(SettingsActionTitle.openTaskFile, "在默认 App 中打开")
+        XCTAssertEqual(SettingsActionTitle.revealTaskFile, "在 Finder 中显示")
+        XCTAssertEqual(SettingsActionTitle.reloadTasks, "重新加载任务")
+    }
+
+    func testSettingsViewScrollsWhenContentOverflows() {
+        XCTAssertTrue(SettingsLayout.scrollsWhenContentOverflows)
+    }
+
     func testRequiresBuiltInScreenWithTopSafeArea() {
         XCTAssertTrue(
             NotchLayout.isEligible(isBuiltIn: true, topSafeArea: 32)
@@ -48,6 +73,12 @@ final class NotchLayoutTests: XCTestCase {
     func testCompactSideWidthLeavesRoomForSmallSummary() {
         XCTAssertEqual(NotchLayout.compactSideWidth, 54)
         XCTAssertEqual(NotchLayout.compactSummaryFontSize, 11)
+    }
+
+    func testCompleteCompactStateStaysVisibleButQuieter() {
+        XCTAssertEqual(CompactDisplayStyle.activeOpacity, 1)
+        XCTAssertLessThan(CompactDisplayStyle.completeOpacity, CompactDisplayStyle.activeOpacity)
+        XCTAssertGreaterThanOrEqual(CompactDisplayStyle.completeOpacity, 0.35)
     }
 
     func testNotchWidthUsesAuxiliaryAreaWidths() {

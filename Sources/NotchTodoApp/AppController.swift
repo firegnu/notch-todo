@@ -36,7 +36,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         notchWindowController?.show()
 
         if taskFileStore == nil {
-            viewModel.showError("请选择 Markdown 任务文件")
+            viewModel.showError(.noFileSelected(message: "请选择 Markdown 任务文件"))
         }
     }
 
@@ -64,7 +64,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             UserDefaults.standard.set(bookmark, forKey: DefaultsKey.taskFileBookmark)
             useTaskFile(url)
         } catch {
-            viewModel.showError("无法保存文件权限：\(error.localizedDescription)")
+            viewModel.showError(.permissionLost(message: "无法保存文件权限：\(error.localizedDescription)"))
         }
     }
 
@@ -74,7 +74,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             settings.setLaunchAtLoginEnabled(launchAtLogin.isEnabled)
         } catch {
             settings.setLaunchAtLoginEnabled(launchAtLogin.isEnabled)
-            viewModel.showError("无法更新登录启动设置：\(error.localizedDescription)")
+            viewModel.showError(.generic(message: "无法更新登录启动设置：\(error.localizedDescription)"))
         }
     }
 
@@ -86,7 +86,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         do {
             useTaskFile(try TaskFileStore.resolveBookmark(bookmark))
         } catch {
-            viewModel.showError("任务文件权限已失效，请重新选择文件")
+            viewModel.showError(.permissionLost(message: "任务文件权限已失效，请重新选择文件"))
         }
     }
 

@@ -13,6 +13,7 @@ final class AppSettingsStateTests: XCTestCase {
 
         XCTAssertEqual(state.taskFileName, "tomorrow.md")
         XCTAssertEqual(state.taskFileDirectory, "~/Documents")
+        XCTAssertTrue(state.canOpenTaskFile)
     }
 
     func testMissingFileUsesEmptyStateLabels() {
@@ -20,6 +21,7 @@ final class AppSettingsStateTests: XCTestCase {
 
         XCTAssertEqual(state.taskFileName, "未选择任务文件")
         XCTAssertEqual(state.taskFileDirectory, "请选择一个 Markdown 文件")
+        XCTAssertFalse(state.canOpenTaskFile)
         XCTAssertTrue(state.launchAtLoginEnabled)
     }
 }

@@ -21,4 +21,23 @@ final class NotchPresentationStateTests: XCTestCase {
         XCTAssertFalse(state.isShowingSettings)
         XCTAssertFalse(state.isLocked)
     }
+
+    func testCompactTapExpandsWithoutLockingPanel() {
+        let state = NotchPresentationState()
+
+        state.expandFromCompactTap()
+
+        XCTAssertTrue(state.isExpanded)
+        XCTAssertFalse(state.isLocked)
+    }
+
+    func testCompactTapDoesNotUnlockPinnedPanel() {
+        let state = NotchPresentationState()
+        state.isLocked = true
+
+        state.expandFromCompactTap()
+
+        XCTAssertTrue(state.isExpanded)
+        XCTAssertTrue(state.isLocked)
+    }
 }

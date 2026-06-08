@@ -30,6 +30,10 @@ final class AppSettingsState: ObservableObject {
         return directory
     }
 
+    var canOpenTaskFile: Bool {
+        taskFileURL != nil
+    }
+
     func setTaskFile(_ url: URL) {
         taskFileURL = url
     }

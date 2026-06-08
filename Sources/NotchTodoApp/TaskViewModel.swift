@@ -1,11 +1,12 @@
 import Combine
+import AppKit
 import Foundation
 import NotchTodoCore
 
 @MainActor
 final class TaskViewModel: ObservableObject {
     @Published private(set) var tasks: [TaskItem] = []
-    @Published private(set) var errorMessage: String?
+    @Published private(set) var error: TaskPanelError?
 
     private var store: (any TaskFileStoring)?
 
@@ -33,11 +34,22 @@ final class TaskViewModel: ObservableObject {
         tasks.lazy.filter { !$0.isCompleted }.count
     }
 
+    var isAllComplete: Bool {
+        !tasks.isEmpty && incompleteCount == 0
+    }
+
     var compactLabel: String {
-        if errorMessage != nil {
+        if error != nil {
             return "--/--"
         }
+        if isAllComplete {
+            return "✓"
+        }
         return "\(completedCount)/\(totalCount)"
+    }
+
+    var errorMessage: String? {
+        error?.message
     }
 
     func use(store: any TaskFileStoring) {
@@ -53,14 +65,13 @@ final class TaskViewModel: ObservableObject {
                         self?.apply(tasks)
                     }
                 case let .failure(error):
-                    let message = error.localizedDescription
                     Task { @MainActor in
-                        self?.showError(message)
+                        self?.showError(error)
                     }
                 }
             }
         } catch {
-            showError(error.localizedDescription)
+            showError(error)
         }
     }
 
@@ -80,12 +91,30 @@ final class TaskViewModel: ObservableObject {
             apply(try store.toggle(task))
         } catch {
             tasks = previousTasks
-            showError(error.localizedDescription)
+            showError(error)
         }
     }
 
+    func reloadTasks() {
+        reload()
+    }
+
+    func openTaskFile() {
+        guard let url = existingTaskFileURL() else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    func revealTaskFile() {
+        guard let url = existingTaskFileURL() else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
     func showError(_ message: String) {
-        errorMessage = message
+        error = .generic(message: message)
+    }
+
+    func showError(_ panelError: TaskPanelError) {
+        error = panelError
     }
 
     private func reload() {
@@ -94,12 +123,25 @@ final class TaskViewModel: ObservableObject {
             apply(try store.load())
         } catch {
             tasks = []
-            showError(error.localizedDescription)
+            showError(error)
         }
     }
 
     private func apply(_ tasks: [TaskItem]) {
         self.tasks = tasks
-        errorMessage = nil
+        error = nil
+    }
+
+    private func existingTaskFileURL() -> URL? {
+        guard let url = store?.url else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            showError(.fileMissing(message: "任务文件不存在，请重新选择文件"))
+            return nil
+        }
+        return url
+    }
+
+    private func showError(_ error: Swift.Error) {
+        self.error = TaskPanelError.classified(from: error)
     }
 }

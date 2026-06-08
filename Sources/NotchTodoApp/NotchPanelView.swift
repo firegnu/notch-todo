@@ -24,6 +24,21 @@ enum TaskInteractionStyle {
     static let toggleDuration = 0.16
 }
 
+enum CompactDisplayStyle {
+    static let activeOpacity = 1.0
+    static let completeOpacity = 0.42
+}
+
+enum SettingsActionTitle {
+    static let openTaskFile = "在默认 App 中打开"
+    static let revealTaskFile = "在 Finder 中显示"
+    static let reloadTasks = "重新加载任务"
+}
+
+enum SettingsLayout {
+    static let scrollsWhenContentOverflows = true
+}
+
 struct TaskPanelStateContent {
     let symbol: String
     let title: String
@@ -42,6 +57,31 @@ struct TaskPanelStateContent {
     static let error = TaskPanelStateContent(
         symbol: "exclamationmark.triangle",
         title: "无法读取任务",
+        message: ""
+    )
+    static let fileMissing = TaskPanelStateContent(
+        symbol: "doc.questionmark",
+        title: "任务文件不存在",
+        message: ""
+    )
+    static let noFileSelected = TaskPanelStateContent(
+        symbol: "doc.badge.plus",
+        title: "请选择任务文件",
+        message: ""
+    )
+    static let permissionLost = TaskPanelStateContent(
+        symbol: "lock.trianglebadge.exclamationmark",
+        title: "需要重新授权",
+        message: ""
+    )
+    static let markdownFormat = TaskPanelStateContent(
+        symbol: "text.badge.xmark",
+        title: "Tasks 区域格式错误",
+        message: ""
+    )
+    static let writeConflict = TaskPanelStateContent(
+        symbol: "arrow.triangle.2.circlepath",
+        title: "任务已被外部修改",
         message: ""
     )
 }
@@ -64,6 +104,10 @@ final class NotchPresentationState: ObservableObject {
         isShowingSettings = false
     }
 
+    func expandFromCompactTap() {
+        isExpanded = true
+    }
+
     func resetForCollapse() {
         isShowingSettings = false
         isLocked = false
@@ -79,11 +123,15 @@ struct NotchPanelView: View {
     @ObservedObject var settings: AppSettingsState
 
     let onHoverChanged: (Bool) -> Void
+    let onCompactTap: () -> Void
     let onToggleLock: () -> Void
     let onToggleTask: (TaskItem) -> Void
     let onShowSettings: () -> Void
     let onShowTasks: () -> Void
     let onSelectTaskFile: () -> Void
+    let onReloadTasks: () -> Void
+    let onOpenTaskFile: () -> Void
+    let onRevealTaskFile: () -> Void
     let onSetLaunchAtLogin: @MainActor @Sendable (Bool) -> Void
     let onQuit: () -> Void
 
@@ -94,6 +142,7 @@ struct NotchPanelView: View {
                     .opacity(presentation.isExpanded ? 0 : 1)
                     .scaleEffect(presentation.isExpanded ? 0.98 : 1, anchor: .top)
                     .zIndex(presentation.isExpanded ? 0 : 1)
+                    .onTapGesture(perform: onCompactTap)
                     .animation(.easeOut(duration: 0.12), value: presentation.isExpanded)
 
                 if presentation.isContentVisible {
@@ -157,6 +206,7 @@ struct NotchPanelView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
+                .opacity(compactContentOpacity)
                 .frame(width: NotchLayout.compactSideWidth)
 
             Color.clear
@@ -244,12 +294,12 @@ struct NotchPanelView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let error = viewModel.errorMessage {
+        if let error = viewModel.error {
             panelStateView(
-                TaskPanelStateContent.error,
-                message: error,
-                actionTitle: "重新选择文件",
-                action: onSelectTaskFile
+                error.stateContent,
+                message: error.message,
+                actionTitle: error.recoveryActionTitle,
+                action: recoveryAction(for: error)
             )
         } else if viewModel.tasks.isEmpty {
             panelStateView(TaskPanelStateContent.empty)
@@ -288,6 +338,17 @@ struct NotchPanelView: View {
                     : .easeOut(duration: TaskInteractionStyle.toggleDuration),
                 value: viewModel.tasks
             )
+        }
+    }
+
+    private func recoveryAction(for error: TaskPanelError) -> (() -> Void)? {
+        switch error.kind {
+        case .fileMissing, .noFileSelected, .permissionLost, .markdownFormat:
+            onSelectTaskFile
+        case .writeConflict:
+            onReloadTasks
+        case .generic:
+            nil
         }
     }
 
@@ -388,64 +449,96 @@ struct NotchPanelView: View {
     }
 
     private var settingsView: some View {
-        VStack(spacing: 12) {
-            Button(action: onSelectTaskFile) {
-                settingsRow(
-                    icon: "doc.text",
-                    title: settings.taskFileName,
-                    subtitle: settings.taskFileDirectory,
-                    trailing: "更换"
-                )
-            }
-            .buttonStyle(.plain)
-
-            HStack(spacing: 12) {
-                settingsIcon("power")
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("登录时启动")
-                        .font(.system(size: 14, weight: .medium))
-                    Text("开机后自动显示任务")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button {
-                    onSetLaunchAtLogin(!settings.launchAtLoginEnabled)
-                } label: {
-                    Capsule()
-                        .fill(
-                            settings.launchAtLoginEnabled
-                                ? Color.green
-                                : Color.white.opacity(0.18)
-                        )
-                        .frame(width: 34, height: 20)
-                        .overlay(alignment: settings.launchAtLoginEnabled ? .trailing : .leading) {
-                            Circle()
-                                .fill(.white)
-                                .frame(width: 16, height: 16)
-                                .padding(2)
-                        }
+        ScrollView {
+            VStack(spacing: 12) {
+                Button(action: onSelectTaskFile) {
+                    settingsRow(
+                        icon: "doc.text",
+                        title: settings.taskFileName,
+                        subtitle: settings.taskFileDirectory,
+                        trailing: "更换"
+                    )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("登录时启动")
-                .accessibilityValue(settings.launchAtLoginEnabled ? "已开启" : "已关闭")
-            }
-            .settingsCard()
 
-            Spacer(minLength: 4)
+                if settings.canOpenTaskFile {
+                    Button(action: onOpenTaskFile) {
+                        settingsRow(
+                            icon: "arrow.up.right.square",
+                            title: SettingsActionTitle.openTaskFile,
+                            subtitle: settings.taskFileName,
+                            trailing: "打开"
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-            Button(action: onQuit) {
-                HStack {
-                    Image(systemName: "power")
-                    Text("退出 Notch Todo")
-                        .fontWeight(.medium)
+                    Button(action: onRevealTaskFile) {
+                        settingsRow(
+                            icon: "folder",
+                            title: SettingsActionTitle.revealTaskFile,
+                            subtitle: settings.taskFileName,
+                            trailing: "显示"
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onReloadTasks) {
+                        settingsRow(
+                            icon: "arrow.clockwise",
+                            title: SettingsActionTitle.reloadTasks,
+                            subtitle: settings.taskFileName,
+                            trailing: "刷新"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .foregroundStyle(.red.opacity(0.9))
-                .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+
+                HStack(spacing: 12) {
+                    settingsIcon("power")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("登录时启动")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("开机后自动显示任务")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        onSetLaunchAtLogin(!settings.launchAtLoginEnabled)
+                    } label: {
+                        Capsule()
+                            .fill(
+                                settings.launchAtLoginEnabled
+                                    ? Color.green
+                                    : Color.white.opacity(0.18)
+                            )
+                            .frame(width: 34, height: 20)
+                            .overlay(alignment: settings.launchAtLoginEnabled ? .trailing : .leading) {
+                                Circle()
+                                    .fill(.white)
+                                    .frame(width: 16, height: 16)
+                                    .padding(2)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("登录时启动")
+                    .accessibilityValue(settings.launchAtLoginEnabled ? "已开启" : "已关闭")
+                }
+                .settingsCard()
+
+                Button(action: onQuit) {
+                    HStack {
+                        Image(systemName: "power")
+                        Text("退出 Notch Todo")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundStyle(.red.opacity(0.9))
+                    .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -543,8 +636,13 @@ struct NotchPanelView: View {
     }
 
     private var isAllComplete: Bool {
-        !viewModel.tasks.isEmpty
-            && viewModel.completedCount == viewModel.totalCount
+        viewModel.isAllComplete
+    }
+
+    private var compactContentOpacity: Double {
+        isAllComplete
+            ? CompactDisplayStyle.completeOpacity
+            : CompactDisplayStyle.activeOpacity
     }
 }
 
