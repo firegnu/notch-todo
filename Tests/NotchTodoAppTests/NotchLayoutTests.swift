@@ -81,6 +81,12 @@ final class NotchLayoutTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(CompactDisplayStyle.completeOpacity, 0.35)
     }
 
+    func testTaskListScrollFadeStaysSubtle() {
+        XCTAssertEqual(TaskListScrollFade.height, 18)
+        XCTAssertGreaterThan(TaskListScrollFade.opacity, 0)
+        XCTAssertLessThanOrEqual(TaskListScrollFade.opacity, 0.18)
+    }
+
     func testNotchWidthUsesAuxiliaryAreaWidths() {
         XCTAssertEqual(
             NotchLayout.notchWidth(

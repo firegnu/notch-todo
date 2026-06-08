@@ -24,6 +24,11 @@ enum TaskInteractionStyle {
     static let toggleDuration = 0.16
 }
 
+enum TaskListScrollFade {
+    static let height: CGFloat = 18
+    static let opacity = 0.14
+}
+
 enum CompactDisplayStyle {
     static let activeOpacity = 1.0
     static let completeOpacity = 0.42
@@ -332,6 +337,12 @@ struct NotchPanelView: View {
                 }
             }
             .scrollIndicators(.never)
+            .overlay(alignment: .top) {
+                taskListScrollFade(edge: .top)
+            }
+            .overlay(alignment: .bottom) {
+                taskListScrollFade(edge: .bottom)
+            }
             .animation(
                 reduceMotion
                     ? nil
@@ -446,6 +457,29 @@ struct NotchPanelView: View {
             .foregroundStyle(.white.opacity(0.38))
             .padding(.horizontal, 6)
             .padding(.bottom, 5)
+    }
+
+    private enum ScrollFadeEdge {
+        case top
+        case bottom
+    }
+
+    private func taskListScrollFade(edge: ScrollFadeEdge) -> some View {
+        LinearGradient(
+            colors: edge == .top
+                ? [
+                    .black.opacity(TaskListScrollFade.opacity),
+                    .black.opacity(0),
+                ]
+                : [
+                    .black.opacity(0),
+                    .black.opacity(TaskListScrollFade.opacity),
+                ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: TaskListScrollFade.height)
+        .allowsHitTesting(false)
     }
 
     private var settingsView: some View {
