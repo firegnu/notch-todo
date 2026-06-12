@@ -8,12 +8,24 @@ let package = Package(
     products: [
         .library(name: "NotchTodoCore", targets: ["NotchTodoCore"]),
         .executable(name: "NotchTodo", targets: ["NotchTodoApp"]),
+        .executable(
+            name: "NotchTodoWidgetExtension",
+            targets: ["NotchTodoWidgetExtension"]
+        ),
     ],
     targets: [
         .target(name: "NotchTodoCore"),
         .executableTarget(
             name: "NotchTodoApp",
             dependencies: ["NotchTodoCore"]
+        ),
+        .executableTarget(
+            name: "NotchTodoWidgetExtension",
+            dependencies: ["NotchTodoCore"],
+            linkerSettings: [
+                .linkedFramework("SwiftUI"),
+                .linkedFramework("WidgetKit"),
+            ]
         ),
         .testTarget(
             name: "NotchTodoCoreTests",
