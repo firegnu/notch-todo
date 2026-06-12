@@ -232,6 +232,40 @@ final class TaskViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.tasks, [changed])
     }
+
+    func testStateChangeCallbackRunsAfterStoreLoad() {
+        let viewModel = TaskViewModel()
+        let store = MockTaskFileStore()
+        store.loadResult = .success([
+            TaskItem(lineIndex: 1, text: "first", isCompleted: false),
+        ])
+        var callbackCount = 0
+        viewModel.onStateChanged = {
+            callbackCount += 1
+        }
+
+        viewModel.use(store: store)
+
+        XCTAssertEqual(callbackCount, 1)
+    }
+
+    func testStateChangeCallbackRunsAfterToggle() {
+        let viewModel = TaskViewModel()
+        let original = TaskItem(lineIndex: 1, text: "first", isCompleted: false)
+        let completed = TaskItem(lineIndex: 1, text: "first", isCompleted: true)
+        let store = MockTaskFileStore()
+        store.loadResult = .success([original])
+        store.toggleResult = .success([completed])
+        var callbackCount = 0
+        viewModel.onStateChanged = {
+            callbackCount += 1
+        }
+        viewModel.use(store: store)
+
+        viewModel.toggle(original)
+
+        XCTAssertEqual(callbackCount, 2)
+    }
 }
 
 private enum TestError: Swift.Error {

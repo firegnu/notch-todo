@@ -1,6 +1,7 @@
 import AppKit
 import NotchTodoCore
 import UniformTypeIdentifiers
+import WidgetKit
 
 @MainActor
 final class AppController: NSObject, NSApplicationDelegate {
@@ -16,12 +17,21 @@ final class AppController: NSObject, NSApplicationDelegate {
     private lazy var settings = AppSettingsState(
         launchAtLoginEnabled: launchAtLogin.isEnabled
     )
+    private let widgetBookmarkStore = WidgetTaskFileBookmarkStore(
+        defaults: WidgetSharedData.appGroupDefaults()
+    )
+    private let widgetSnapshotStore = WidgetTaskSnapshotStore(
+        directoryURL: WidgetSharedData.appGroupContainerURL()
+    )
     private var notchWindowController: NotchWindowController?
     private var taskFileStore: TaskFileStore?
     private var calendarAgendaRefreshTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        viewModel.onStateChanged = { [weak self] in
+            self?.refreshWidgetState()
+        }
 
         notchWindowController = NotchWindowController(
             viewModel: viewModel,
@@ -84,6 +94,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         do {
             let bookmark = try TaskFileStore.makeBookmark(for: url)
             UserDefaults.standard.set(bookmark, forKey: DefaultsKey.taskFileBookmark)
+            widgetBookmarkStore.saveBookmark(bookmark)
             useTaskFile(url)
         } catch {
             viewModel.showError(.permissionLost(message: "无法保存文件权限：\(error.localizedDescription)"))
@@ -102,12 +113,15 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func restoreTaskFile() {
         guard let bookmark = UserDefaults.standard.data(forKey: DefaultsKey.taskFileBookmark) else {
+            widgetBookmarkStore.clearBookmark()
             return
         }
 
         do {
+            widgetBookmarkStore.saveBookmark(bookmark)
             useTaskFile(try TaskFileStore.resolveBookmark(bookmark))
         } catch {
+            widgetBookmarkStore.clearBookmark()
             viewModel.showError(.permissionLost(message: "任务文件权限已失效，请重新选择文件"))
         }
     }
@@ -118,6 +132,13 @@ final class AppController: NSObject, NSApplicationDelegate {
         taskFileStore = store
         settings.setTaskFile(url)
         viewModel.use(store: store)
+    }
+
+    private func refreshWidgetState() {
+        try? widgetSnapshotStore.saveSnapshot(
+            WidgetTaskSnapshot(tasks: viewModel.tasks)
+        )
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedData.widgetKind)
     }
 
     private func enableCalendarAgenda() {

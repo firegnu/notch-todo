@@ -8,6 +8,8 @@ final class TaskViewModel: ObservableObject {
     @Published private(set) var tasks: [TaskItem] = []
     @Published private(set) var error: TaskPanelError?
 
+    var onStateChanged: (() -> Void)?
+
     private var store: (any TaskFileStoring)?
 
     var completedCount: Int {
@@ -111,10 +113,12 @@ final class TaskViewModel: ObservableObject {
 
     func showError(_ message: String) {
         error = .generic(message: message)
+        onStateChanged?()
     }
 
     func showError(_ panelError: TaskPanelError) {
         error = panelError
+        onStateChanged?()
     }
 
     private func reload() {
@@ -130,6 +134,7 @@ final class TaskViewModel: ObservableObject {
     private func apply(_ tasks: [TaskItem]) {
         self.tasks = tasks
         error = nil
+        onStateChanged?()
     }
 
     private func existingTaskFileURL() -> URL? {
@@ -143,5 +148,6 @@ final class TaskViewModel: ObservableObject {
 
     private func showError(_ error: Swift.Error) {
         self.error = TaskPanelError.classified(from: error)
+        onStateChanged?()
     }
 }
