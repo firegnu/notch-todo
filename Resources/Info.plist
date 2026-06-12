@@ -16,6 +16,10 @@
     <string>Notch Todo</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>CFBundleSupportedPlatforms</key>
+    <array>
+        <string>MacOSX</string>
+    </array>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
@@ -26,6 +30,8 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NotchTodoAppGroupIdentifier</key>
+    <string>group.com.firegnu.notchtodo</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
     <string>用于在面板中只读显示今天的 Apple Calendar 日程。</string>
 </dict>

@@ -1,10 +1,22 @@
 import Foundation
 
 public enum WidgetSharedData {
-    public static let appGroupIdentifier = "group.com.firegnu.notchtodo"
+    public static let defaultAppGroupIdentifier = "group.com.firegnu.notchtodo"
+    public static let appGroupInfoPlistKey = "NotchTodoAppGroupIdentifier"
     public static let widgetKind = "com.firegnu.notchtodo.tasks"
     public static let taskFileBookmarkKey = "widget.taskFileBookmark"
     public static let snapshotFileName = "task-snapshot.json"
+
+    public static var appGroupIdentifier: String {
+        guard let identifier = Bundle.main.object(
+            forInfoDictionaryKey: appGroupInfoPlistKey
+        ) as? String,
+              !identifier.isEmpty
+        else {
+            return defaultAppGroupIdentifier
+        }
+        return identifier
+    }
 
     public static func appGroupDefaults() -> UserDefaults? {
         UserDefaults(suiteName: appGroupIdentifier)

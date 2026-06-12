@@ -16,12 +16,18 @@
     <string>Notch Todo Widget</string>
     <key>CFBundlePackageType</key>
     <string>XPC!</string>
+    <key>CFBundleSupportedPlatforms</key>
+    <array>
+        <string>MacOSX</string>
+    </array>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <key>NotchTodoAppGroupIdentifier</key>
+    <string>group.com.firegnu.notchtodo</string>
     <key>NSExtension</key>
     <dict>
         <key>NSExtensionPointIdentifier</key>

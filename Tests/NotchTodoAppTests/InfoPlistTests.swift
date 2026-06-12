@@ -48,6 +48,20 @@ final class InfoPlistTests: XCTestCase {
         XCTAssertEqual(plist["CFBundlePackageType"] as? String, "XPC!")
     }
 
+    func testAppAndWidgetDeclareDefaultAppGroupIdentifier() throws {
+        let appPlist = try loadPlist("Info.plist")
+        let widgetPlist = try loadPlist("NotchTodoWidgetExtension-Info.plist")
+
+        XCTAssertEqual(
+            appPlist["NotchTodoAppGroupIdentifier"] as? String,
+            "group.com.firegnu.notchtodo"
+        )
+        XCTAssertEqual(
+            widgetPlist["NotchTodoAppGroupIdentifier"] as? String,
+            "group.com.firegnu.notchtodo"
+        )
+    }
+
     func testWidgetExtensionEntitlementsUseSandboxAndAppGroup() throws {
         let entitlements = try loadPlist("NotchTodoWidgetExtension.entitlements")
         let sandbox = try XCTUnwrap(

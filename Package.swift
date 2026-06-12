@@ -22,6 +22,9 @@ let package = Package(
         .executableTarget(
             name: "NotchTodoWidgetExtension",
             dependencies: ["NotchTodoCore"],
+            swiftSettings: [
+                .unsafeFlags(["-application-extension"], .when(platforms: [.macOS])),
+            ],
             linkerSettings: [
                 .linkedFramework("SwiftUI"),
                 .linkedFramework("WidgetKit"),
