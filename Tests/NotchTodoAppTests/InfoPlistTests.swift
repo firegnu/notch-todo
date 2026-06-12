@@ -24,6 +24,47 @@ final class InfoPlistTests: XCTestCase {
         )
     }
 
+    func testAppGroupEntitlementExistsWithoutEnablingMainAppSandbox() throws {
+        let entitlements = try loadPlist("NotchTodo.entitlements")
+        let groups = try XCTUnwrap(
+            entitlements["com.apple.security.application-groups"] as? [String]
+        )
+
+        XCTAssertTrue(groups.contains("group.com.firegnu.notchtodo"))
+        XCTAssertNil(
+            entitlements["com.apple.security.app-sandbox"],
+            "Do not enable sandbox without rechecking Markdown file monitoring."
+        )
+    }
+
+    func testWidgetExtensionInfoPlistDeclaresWidgetKitExtensionPoint() throws {
+        let plist = try loadPlist("NotchTodoWidgetExtension-Info.plist")
+        let extensionInfo = try XCTUnwrap(plist["NSExtension"] as? [String: Any])
+        let point = try XCTUnwrap(
+            extensionInfo["NSExtensionPointIdentifier"] as? String
+        )
+
+        XCTAssertEqual(point, "com.apple.widgetkit-extension")
+        XCTAssertEqual(plist["CFBundlePackageType"] as? String, "XPC!")
+    }
+
+    func testWidgetExtensionEntitlementsUseSandboxAndAppGroup() throws {
+        let entitlements = try loadPlist("NotchTodoWidgetExtension.entitlements")
+        let sandbox = try XCTUnwrap(
+            entitlements["com.apple.security.app-sandbox"] as? Bool
+        )
+        let bookmarkAccess = try XCTUnwrap(
+            entitlements["com.apple.security.files.bookmarks.app-scope"] as? Bool
+        )
+        let groups = try XCTUnwrap(
+            entitlements["com.apple.security.application-groups"] as? [String]
+        )
+
+        XCTAssertTrue(sandbox)
+        XCTAssertTrue(bookmarkAccess)
+        XCTAssertTrue(groups.contains("group.com.firegnu.notchtodo"))
+    }
+
     private func loadPlist(_ name: String) throws -> [String: Any] {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
